@@ -1,6 +1,6 @@
 # AGENTS.md
 
-PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPGP keys. Pure-Go crypto (`github.com/ProtonMail/go-crypto`), no GnuPG dependency, single binary, per-user install without root.
+PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPGP keys. Pure-Go crypto (`github.com/ProtonMail/go-crypto`), no GnuPG dependency, single binary per OS (Windows, Linux, macOS), per-user install without admin/root.
 
 ## Startup Workflow
 
@@ -12,11 +12,13 @@ PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPG
 
 | Path | Owns |
 |---|---|
-| `internal/pgp` | Crypto core. No UI imports. All behavior covered by `crypto_test.go`. |
-| `internal/install` | Per-user XDG install/uninstall. No root paths. |
-| `internal/ui` | Fyne widgets only. Calls `pgp.Encrypt/Decrypt`; no crypto logic. |
+| `internal/pgp` | Crypto core + `Inspect*`/`Classify` (read headers without decrypting). No UI imports. |
+| `internal/formcheck` | Live field validation and drag-and-drop routing. No Fyne imports; all rules unit-tested. |
+| `internal/install` | Per-user install. `install_unix.go` (XDG), `install_windows.go` (Start Menu `.lnk` via PowerShell). |
+| `internal/ui` | Fyne widgets only. Calls `formcheck` for validation, `pgp` to run; no rules or crypto here. |
 | `cmd/pgp-tools` | Flags (`--install`, `--uninstall`, `--version`) and UI launch. |
 | `assets` | Embedded icon + desktop entry template. |
+| `winres`, `scripts/build-windows.ps1` | Windows exe resources (icon, asInvoker/DPI manifest, version) and native build. |
 | `tools/testreport` | `go test -json` to HTML/JUnit/Markdown report. Standard library only; not shipped in the app binary. |
 
 ## Invariants (do not break)
@@ -28,6 +30,8 @@ PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPG
 - Nothing requires root. Install targets come from `XDG_*` or `~/.local`.
 - UI updates from goroutines go through `fyne.Do`.
 - New error cases: add a sentinel in `internal/pgp/errors.go`, map in `internal/ui/messages.go`, test in `crypto_test.go`.
+- New field rules go in `internal/formcheck` with a test; `pgp.*Request.Validate()` stays as the backstop at run time.
+- Windows: no admin prompt (manifest `asInvoker`), no hardcoded `/` paths, compare paths case-insensitively, PowerShell inputs via env vars only.
 
 ## Working Rules
 
@@ -53,7 +57,9 @@ PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPG
 
 ```bash
 ./init.sh                 # full gate
-go test ./internal/pgp    # fast loop for crypto changes (no GUI libs needed)
+go test ./internal/pgp ./internal/formcheck   # fast loop, no GUI libs needed
+GOOS=windows CGO_ENABLED=0 go test -c ./internal/formcheck   # compile-check Windows rules (run under wine if available)
+make windows              # cross-build dist/pgp-tools.exe (needs gcc-mingw-w64-x86-64)
 make report               # reports/index.html; attach summary.md as evidence
 ```
 

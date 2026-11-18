@@ -3,51 +3,71 @@ package ui
 import (
 	"context"
 	"fmt"
-	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/yoyoucay/pgp-tools/internal/formcheck"
 	"github.com/yoyoucay/pgp-tools/internal/pgp"
 )
 
-func newEncryptTab(a fyne.App, win fyne.Window) fyne.CanvasObject {
+const checkDelay = 250 * time.Millisecond
+
+type encryptTab struct {
+	input, pubKey, privKey, output *pathField
+	pass                           *passField
+	armor                          *widget.Check
+	runner                         *runner
+	live                           *liveCheck[formcheck.EncryptForm, formcheck.EncryptState]
+	content                        fyne.CanvasObject
+	outputEdited                   bool
+}
+
+func newEncryptTab(a fyne.App, win fyne.Window, checker *formcheck.Checker) *encryptTab {
 	prefs := a.Preferences()
+	t := &encryptTab{
+		input:   newOpenField(win, "File to encrypt"),
+		pubKey:  newOpenField(win, "Recipient's public key"),
+		privKey: newOpenField(win, "Optional: your private key"),
+		pass:    newPassField(),
+		output:  newSaveField(win, "Where to save the encrypted file"),
+		armor:   widget.NewCheck("Save as text (.asc), e.g. to paste into an email", nil),
+	}
+	t.live = &liveCheck[formcheck.EncryptForm, formcheck.EncryptState]{
+		delay: checkDelay, gather: t.form, check: checker.Encrypt, apply: t.apply,
+	}
 
-	input := newOpenField(win, "File to encrypt")
-	pubKey := newOpenField(win, "Recipient public key (.asc / .gpg)")
-	privKey := newOpenField(win, "Optional: your private key, to sign")
-	pass := widget.NewPasswordEntry()
-	pass.SetPlaceHolder("Passphrase for the private key")
-	output := newSaveField(win, "Encrypted output file")
-	armor := widget.NewCheck("ASCII armor (.asc text output)", nil)
+	t.pubKey.SetText(prefs.String(prefEncPub))
+	t.privKey.SetText(prefs.String(prefEncPriv))
+	t.armor.SetChecked(prefs.Bool(prefEncArmor))
 
-	pubKey.SetText(prefs.String(prefEncPub))
-	privKey.SetText(prefs.String(prefEncPriv))
-	armor.SetChecked(prefs.Bool(prefEncArmor))
-
-	outputEdited := false
-	syncOutput := func() {
-		if !outputEdited {
-			output.SetText(pgp.DefaultEncryptOutput(strings.TrimSpace(input.Text()), armor.Checked))
+	t.input.entry.OnChanged = func(string) { t.syncOutput(); t.live.schedule() }
+	t.armor.OnChanged = func(bool) { t.syncOutput(); t.live.schedule() }
+	t.output.entry.OnChanged = func(string) {
+		t.outputEdited = t.output.Text() != "" && t.output.Text() != t.defaultOutput()
+		t.live.schedule()
+	}
+	t.pubKey.entry.OnChanged = func(string) { t.live.schedule() }
+	t.privKey.entry.OnChanged = func(string) { t.live.schedule() }
+	t.pass.entry.OnChanged = func(s string) {
+		if s != "" {
+			t.pass.status.set(formcheck.Result{Text: "Checking passphrase..."})
 		}
-	}
-	input.entry.OnChanged = func(string) { syncOutput() }
-	armor.OnChanged = func(bool) { syncOutput() }
-	output.entry.OnChanged = func(s string) {
-		outputEdited = s != "" && s != pgp.DefaultEncryptOutput(strings.TrimSpace(input.Text()), armor.Checked)
+		t.live.schedule()
 	}
 
-	r := newRunner(win, "Encrypt", theme.ConfirmIcon(), func() (string, job, error) {
+	t.runner = newRunner(win, "Encrypt", func() (string, job, error) {
 		req := pgp.EncryptRequest{
-			InputPath:    strings.TrimSpace(input.Text()),
-			OutputPath:   strings.TrimSpace(output.Text()),
-			RecipientKey: strings.TrimSpace(pubKey.Text()),
-			SignerKey:    strings.TrimSpace(privKey.Text()),
-			Passphrase:   []byte(pass.Text),
-			Armor:        armor.Checked,
+			InputPath:    t.input.Text(),
+			OutputPath:   t.output.Text(),
+			RecipientKey: t.pubKey.Text(),
+			SignerKey:    t.privKey.Text(),
+			Armor:        t.armor.Checked,
+		}
+		if t.pass.allowed {
+			req.Passphrase = []byte(t.pass.Text())
 		}
 		if err := req.Validate(); err != nil {
 			return "", nil, err
@@ -62,25 +82,71 @@ func newEncryptTab(a fyne.App, win fyne.Window) fyne.CanvasObject {
 			if err != nil {
 				return "", err
 			}
-			fyne.Do(func() { pass.SetText("") })
-			signed := "unsigned"
+			fyne.Do(t.pass.Clear)
+			signed := "not signed"
 			if req.SignerKey != "" {
-				signed = "signed"
+				signed = "signed by you"
 			}
-			return fmt.Sprintf("Encrypted %s (%s) to:\n%s", humanBytes(res.Bytes), signed, req.OutputPath), nil
+			return fmt.Sprintf("Encrypted %s (%s). Saved to:\n%s", formcheck.HumanBytes(res.Bytes), signed, req.OutputPath), nil
 		}, nil
 	})
-	r.inputs = []disabler{input, pubKey, privKey, pass, output, armor}
+	t.runner.inputs = []disabler{t.input, t.pubKey, t.privKey, t.pass, t.output, t.armor}
+	t.runner.onDone = t.live.schedule
 
 	form := widget.NewForm(
-		widget.NewFormItem("Input file *", input.Object()),
-		widget.NewFormItem("Public key *", pubKey.Object()),
-		widget.NewFormItem("Private key", privKey.Object()),
-		widget.NewFormItem("Passphrase", pass),
-		widget.NewFormItem("Output file *", output.Object()),
-		widget.NewFormItem("", armor),
+		widget.NewFormItem("Input file", t.input.Object()),
+		widget.NewFormItem("Public key", t.pubKey.Object()),
+		widget.NewFormItem("Private key", t.privKey.Object()),
+		widget.NewFormItem("Passphrase", t.pass.box),
+		widget.NewFormItem("Output file", t.output.Object()),
+		widget.NewFormItem("", t.armor),
 	)
-	hint := widget.NewLabel("Encrypts with the recipient's PUBLIC key. Private key + passphrase are optional and only add your signature.")
+	hint := widget.NewLabel("Protect a file so only the owner of the public key can open it. Drag files onto this window or use Browse.")
 	hint.Wrapping = fyne.TextWrapWord
-	return container.NewVScroll(container.NewPadded(container.NewVBox(hint, form, r.Object())))
+	t.content = container.NewVScroll(container.NewPadded(container.NewVBox(hint, form, t.runner.Object())))
+	t.syncOutput()
+	t.live.schedule()
+	return t
+}
+
+func (t *encryptTab) defaultOutput() string {
+	return pgp.DefaultEncryptOutput(t.input.Text(), t.armor.Checked)
+}
+
+func (t *encryptTab) syncOutput() {
+	if !t.outputEdited {
+		t.output.SetText(t.defaultOutput())
+	}
+}
+
+func (t *encryptTab) form() formcheck.EncryptForm {
+	return formcheck.EncryptForm{
+		Input: t.input.Text(), PublicKey: t.pubKey.Text(), PrivateKey: t.privKey.Text(),
+		Passphrase: t.pass.Text(), Output: t.output.Text(),
+	}
+}
+
+func (t *encryptTab) apply(s formcheck.EncryptState) {
+	t.input.status.set(s.Input)
+	t.pubKey.status.set(s.PublicKey)
+	t.privKey.status.set(s.PrivateKey)
+	t.pass.status.set(s.Passphrase)
+	t.output.status.set(s.Output)
+	if !t.runner.busy {
+		t.pass.setAllowed(s.PassphraseEnabled)
+	} else {
+		t.pass.allowed = s.PassphraseEnabled
+	}
+	t.runner.setReady(s.Ready, s.Summary)
+}
+
+func (t *encryptTab) setField(f formcheck.Field, path string) {
+	switch f {
+	case formcheck.FieldPublicKey:
+		t.pubKey.SetText(path)
+	case formcheck.FieldPrivateKey:
+		t.privKey.SetText(path)
+	default:
+		t.input.SetText(path)
+	}
 }

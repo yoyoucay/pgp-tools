@@ -19,37 +19,44 @@ type disabler interface {
 	Enable()
 }
 
-// runner owns the run/cancel buttons, busy indicator, and status line for one tab.
-// Only one job runs per tab; inputs are locked while it runs.
+// runner owns the run/cancel buttons, readiness summary, busy indicator and result
+// line for one tab. The run button is enabled only when validation reports ready.
 type runner struct {
 	win      fyne.Window
 	runBtn   *widget.Button
 	cancel   *widget.Button
+	summary  *widget.Label
 	progress *widget.ProgressBarInfinite
-	status   *widget.Label
+	result   *widget.Label
 	inputs   []disabler
 	stop     context.CancelFunc
+	ready    bool
+	busy     bool
+	onDone   func()
 }
 
 type job func(ctx context.Context, overwrite bool) (string, error)
 
-func newRunner(win fyne.Window, label string, icon fyne.Resource, prepare func() (output string, j job, err error)) *runner {
+func newRunner(win fyne.Window, label string, prepare func() (output string, j job, err error)) *runner {
 	r := &runner{
 		win:      win,
+		summary:  widget.NewLabel(""),
 		progress: widget.NewProgressBarInfinite(),
-		status:   widget.NewLabel("Ready."),
+		result:   widget.NewLabel(""),
 	}
-	r.status.Wrapping = fyne.TextWrapWord
+	r.summary.Wrapping = fyne.TextWrapWord
+	r.summary.TextStyle = fyne.TextStyle{Bold: true}
+	r.result.Wrapping = fyne.TextWrapWord
 	r.progress.Stop()
 	r.progress.Hide()
-	r.runBtn = widget.NewButtonWithIcon(label, icon, func() {
+	r.runBtn = widget.NewButtonWithIcon(label, theme.ConfirmIcon(), func() {
 		out, j, err := prepare()
 		if err != nil {
 			r.fail(err)
 			return
 		}
 		if _, statErr := os.Stat(out); statErr == nil {
-			dialog.ShowConfirm("Overwrite file?", "Output file already exists:\n"+out+"\n\nReplace it?", func(ok bool) {
+			dialog.ShowConfirm("Replace file?", "This file already exists:\n"+out+"\n\nReplace it?", func(ok bool) {
 				if ok {
 					r.start(j, true)
 				}
@@ -59,10 +66,11 @@ func newRunner(win fyne.Window, label string, icon fyne.Resource, prepare func()
 		r.start(j, false)
 	})
 	r.runBtn.Importance = widget.HighImportance
+	r.runBtn.Disable()
 	r.cancel = widget.NewButtonWithIcon("Cancel", theme.CancelIcon(), func() {
 		if r.stop != nil {
 			r.stop()
-			r.status.SetText("Canceling...")
+			r.result.SetText("Canceling...")
 		}
 	})
 	r.cancel.Disable()
@@ -71,17 +79,40 @@ func newRunner(win fyne.Window, label string, icon fyne.Resource, prepare func()
 
 func (r *runner) Object() fyne.CanvasObject {
 	return container.NewVBox(
+		r.summary,
 		container.NewHBox(r.runBtn, r.cancel),
 		r.progress,
-		r.status,
+		r.result,
 	)
+}
+
+// setReady applies the latest validation verdict.
+func (r *runner) setReady(ready bool, text string) {
+	r.ready = ready
+	r.summary.Importance = widget.MediumImportance
+	if ready {
+		r.summary.Importance = widget.SuccessImportance
+	}
+	r.summary.SetText(text)
+	if !r.busy {
+		r.syncRunButton()
+	}
+}
+
+func (r *runner) syncRunButton() {
+	if r.ready {
+		r.runBtn.Enable()
+	} else {
+		r.runBtn.Disable()
+	}
 }
 
 func (r *runner) start(j job, overwrite bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	r.stop = cancel
 	r.setBusy(true)
-	r.status.SetText("Working...")
+	r.result.Importance = widget.MediumImportance
+	r.result.SetText("Working...")
 	go func() {
 		defer cancel()
 		msg, err := j(ctx, overwrite)
@@ -90,24 +121,32 @@ func (r *runner) start(j job, overwrite bool) {
 			r.setBusy(false)
 			if err != nil {
 				r.fail(err)
-				return
+			} else {
+				r.result.Importance = widget.SuccessImportance
+				r.result.SetText(msg)
+				dialog.ShowInformation("Done", msg, r.win)
 			}
-			r.status.SetText(msg)
-			dialog.ShowInformation("Done", msg, r.win)
+			if r.onDone != nil {
+				r.onDone()
+			}
 		})
 	}()
 }
 
 func (r *runner) fail(err error) {
 	text := describe(err)
-	r.status.SetText("Failed: " + text)
+	r.result.Importance = widget.DangerImportance
+	r.result.SetText("Failed: " + text)
 	if errors.Is(err, pgp.ErrCanceled) {
+		r.result.Importance = widget.MediumImportance
+		r.result.SetText("Canceled. No file was written.")
 		return
 	}
 	dialog.ShowError(errors.New(text), r.win)
 }
 
 func (r *runner) setBusy(busy bool) {
+	r.busy = busy
 	for _, in := range r.inputs {
 		if busy {
 			in.Disable()
@@ -122,7 +161,7 @@ func (r *runner) setBusy(busy bool) {
 		r.progress.Start()
 		return
 	}
-	r.runBtn.Enable()
+	r.syncRunButton()
 	r.cancel.Disable()
 	r.progress.Stop()
 	r.progress.Hide()

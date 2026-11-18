@@ -23,6 +23,10 @@ func describe(err error) string {
 		}
 		return fmt.Sprintf("Key file %q: %v.", filepath.Base(ke.Path), ke.Err)
 	}
+	if errors.Is(err, fs.ErrPermission) {
+		// Windows reports a file held open by another program as access denied.
+		return "Access denied. If the file is open in another program, close it and try again. Otherwise choose a folder you can write to."
+	}
 	return capitalize(err.Error()) + "."
 }
 
@@ -31,19 +35,6 @@ func capitalize(s string) string {
 		return s
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
-}
-
-func humanBytes(n int64) string {
-	const unit = 1024
-	if n < unit {
-		return fmt.Sprintf("%d B", n)
-	}
-	div, exp := int64(unit), 0
-	for m := n / unit; m >= unit; m /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 
 func signatureText(r pgp.DecryptResult) string {

@@ -1,15 +1,17 @@
 # Architecture
 
 ```
-cmd/pgp-tools        flags -> install | uninstall | ui.Run
-internal/ui          Fyne tabs (Encrypt, Decrypt), runner (busy/cancel/errors)
-internal/pgp         Encrypt(ctx, EncryptRequest) / Decrypt(ctx, DecryptRequest)
-internal/install     XDG per-user install
+cmd/pgp-tools        flags -> install | uninstall | ui.Run; Windows console attach
+internal/ui          Fyne tabs (Encrypt, Decrypt), status lines, runner (busy/cancel/errors), drop handler
+internal/formcheck   form -> per-field Result + Ready + Summary; drop routing
+internal/pgp         Encrypt / Decrypt; InspectKey / InspectMessage / CheckPassphrase / Classify
+internal/install     per-user install: XDG (Linux/BSD), Start Menu (Windows)
+winres               Windows icon, manifest, version resource -> .syso
 assets               embedded icon.svg + pgp-tools.desktop template
 tools/testreport     dev tool: go test -json -> HTML / JUnit / Markdown
 ```
 
-Dependency direction: `cmd -> ui -> pgp`, `cmd -> install`. `pgp` and `install` import no UI code and are fully unit-tested without a display.
+Dependency direction: `cmd -> ui -> formcheck -> pgp`, `ui -> install`, `cmd -> install`. `pgp` and `install` import no UI code and are fully unit-tested without a display.
 
 ## Crypto flow
 
@@ -27,6 +29,22 @@ Dependency direction: `cmd -> ui -> pgp`, `cmd -> install`. `pgp` and `install` 
 5. Signature policy (`checkSignature`), then rename temp file to target.
 
 Both paths wrap the input reader with a context check so Cancel stops within one buffer read.
+
+## Validation flow
+
+Each field change calls `liveCheck.schedule()`: the form is read on the UI thread, a 250 ms timer restarts, then `formcheck.Checker` runs off the UI thread and the result is applied via `fyne.Do` only if no newer input arrived (generation counter). Checks read file metadata, parse key files (max 16 MiB) and read message headers up to the encrypted body, never the body itself. Passphrase checks run the key's KDF, so results are cached by a SHA-256 of (path, size, mtime, passphrase).
+
+## Windows specifics
+
+| Concern | Handling |
+|---|---|
+| No admin rights | Manifest `asInvoker`; install to `%LOCALAPPDATA%\Programs`, shortcut in the user's Start Menu |
+| Shortcut creation | PowerShell + `WScript.Shell`; paths passed via environment variables; result verified on disk |
+| Running exe replaced or removed | Renamed aside first (Windows allows renaming a running exe, not deleting it) |
+| GUI exe and CLI flags | `AttachConsole(ATTACH_PARENT_PROCESS)` so `--install` output reaches the terminal |
+| Paths | `filepath.FromSlash` on dialog/drop URIs; quotes from "Copy as path" stripped; case-insensitive compare |
+| Notepad files | UTF-8 BOM stripped before armor parsing; CRLF accepted |
+| Locked output file | `fs.ErrPermission` mapped to "close it in the other program" message |
 
 ## Errors
 

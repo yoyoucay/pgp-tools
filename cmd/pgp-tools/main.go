@@ -14,9 +14,14 @@ import (
 // version is overridden at build time: -ldflags "-X main.version=v1.2.3".
 var version = "dev"
 
+var appAssets = install.Assets{DesktopEntry: assets.DesktopEntry, IconSVG: assets.IconSVG}
+
 func main() {
+	if len(os.Args) > 1 {
+		attachConsole()
+	}
 	var (
-		doInstall   = flag.Bool("install", false, "install for current user (no root): ~/.local/bin + app menu entry")
+		doInstall   = flag.Bool("install", false, "install for the current user, no admin/root (Linux: app menu; Windows: Start Menu)")
 		doUninstall = flag.Bool("uninstall", false, "remove the per-user install")
 		showVersion = flag.Bool("version", false, "print version and exit")
 	)
@@ -30,12 +35,12 @@ func main() {
 	case *doUninstall:
 		exitOn(runUninstall())
 	default:
-		ui.Run(version, assets.IconSVG)
+		ui.Run(version, appAssets)
 	}
 }
 
 func runInstall() error {
-	if os.Geteuid() == 0 {
+	if isRoot() {
 		fmt.Fprintln(os.Stderr, "warning: running as root installs into root's home, not system-wide; run as your normal user")
 	}
 	p, err := install.UserPaths()
@@ -46,12 +51,17 @@ func runInstall() error {
 	if err != nil {
 		return fmt.Errorf("locate running binary: %w", err)
 	}
-	if err := install.Install(p, exe, assets.DesktopEntry, assets.IconSVG); err != nil {
+	err = install.Install(p, exe, appAssets)
+	switch {
+	case errors.Is(err, install.ErrMenuEntry):
+		fmt.Printf("installed without menu entry:\n  %s\n", p.Binary())
+		return err
+	case err != nil:
 		return err
 	}
-	fmt.Printf("installed:\n  %s\n  %s\n  %s\n", p.Binary(), p.Desktop(), p.Icon())
+	fmt.Printf("installed:\n  %s\n  %s\n", p.Binary(), p.MenuEntry())
 	if !install.InPath(p.BinDir) {
-		fmt.Printf("note: %s is not in PATH; the app menu entry still works\n", p.BinDir)
+		fmt.Printf("note: %s is not in PATH; start it from the menu entry\n", p.BinDir)
 	}
 	return nil
 }
@@ -64,7 +74,7 @@ func runUninstall() error {
 	if err := install.Uninstall(p); err != nil {
 		return err
 	}
-	fmt.Println("uninstalled; settings remain in the Fyne preferences directory")
+	fmt.Println("uninstalled; app settings remain in the Fyne preferences folder")
 	return nil
 }
 

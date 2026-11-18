@@ -61,12 +61,33 @@
     {
       "id": "feat-006",
       "name": "Drag-and-drop input",
-      "description": "Drop a file on the window to fill Input file of the active tab",
+      "description": "Drop files on the window; each file is classified (public key, private key, encrypted message, other) and routed to the right field and tab",
       "dependencies": [
         "feat-002"
       ],
-      "status": "not-started",
-      "evidence": ""
+      "status": "done",
+      "evidence": "go test ./internal/formcheck (TestRoute), ./internal/pgp (TestClassify)"
+    },
+    {
+      "id": "feat-008",
+      "name": "Windows compatibility",
+      "description": "Per-user Start Menu install without admin, exe icon/manifest/version via windres, console output for CLI flags, Windows path and file quirks, native build script, CI build",
+      "dependencies": [
+        "feat-003",
+        "feat-004"
+      ],
+      "status": "in-progress",
+      "evidence": "Cross-built with mingw; under Wine: pgp/install/formcheck/testreport tests pass, GUI renders, decrypt with quoted Z:\\ paths succeeded, --install/--uninstall in %LOCALAPPDATA%. Pending: real Windows CI run (shortcut via PowerShell, build-windows.ps1)"
+    },
+    {
+      "id": "feat-009",
+      "name": "Live field validation",
+      "description": "Per-field plain-language status under each field, run button enabled only when ready, summary of what is missing, passphrase verified as typed, private key matched against message recipients",
+      "dependencies": [
+        "feat-002"
+      ],
+      "status": "done",
+      "evidence": "go test ./internal/formcheck (10 tests); Xvfb walkthrough: public key as private key -> red error, wrong passphrase -> red error, correct -> Ready to decrypt + button enabled"
     }
   ]
 }

@@ -31,6 +31,7 @@ func readKeyFile(path string) (openpgp.EntityList, error) {
 	if len(data) > maxKeyFileSize {
 		return nil, &KeyError{Path: path, Err: errKeyFileTooLarge}
 	}
+	data = stripBOM(data)
 	if len(bytes.TrimSpace(data)) == 0 {
 		return nil, &KeyError{Path: path, Err: errors.New("file is empty")}
 	}
@@ -137,8 +138,8 @@ func decodeInput(r io.Reader) (io.Reader, error) {
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
-	head = head[:n]
-	if n == 0 {
+	head = stripBOM(head[:n])
+	if len(head) == 0 {
 		return nil, ErrNotEncrypted
 	}
 	full := io.MultiReader(bytes.NewReader(head), r)
@@ -153,6 +154,12 @@ func decodeInput(r io.Reader) (io.Reader, error) {
 		return nil, fmt.Errorf("%w: armor type is %q", ErrNotEncrypted, block.Type)
 	}
 	return block.Body, nil
+}
+
+// stripBOM drops a UTF-8 byte order mark, which Windows Notepad adds when saving
+// a pasted armored key; the armor parser would otherwise miss the BEGIN line.
+func stripBOM(b []byte) []byte {
+	return bytes.TrimPrefix(b, []byte("\xEF\xBB\xBF"))
 }
 
 func keyIDHex(id uint64) string { return fmt.Sprintf("%016X", id) }

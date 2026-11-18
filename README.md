@@ -1,42 +1,63 @@
 # PGP Tools
 
-Desktop app to encrypt and decrypt files with OpenPGP keys. Single portable binary, no GnuPG required, no root needed to install.
+Desktop app to encrypt and decrypt files with OpenPGP keys. One portable program per OS, no GnuPG required, no admin or root rights needed.
 
-- Linux (X11 + Wayland), Windows, macOS
-- Reads armored (`.asc`) and binary (`.gpg`/`.pgp`) keys and messages
+- Windows 10/11, Linux (X11 + Wayland), macOS
+- Reads armored (`.asc`) and binary (`.gpg`/`.pgp`) keys and messages, including files saved by Windows Notepad (CRLF, BOM)
 - Interoperable with GnuPG in both directions
+- Checks every field as you type and says what to fix, in plain language
 
 ## Quick Start
 
-### Portable (no install)
+### Windows
 
-Download the binary for your OS from the latest CI run or release, then:
+1. Download `pgp-tools-windows-amd64.exe` from the latest CI run or release.
+2. Double-click it. It runs as-is (portable): no installer, no admin prompt.
+3. Optional: **Tools > Install to Start Menu...** copies it to your user profile and adds a Start Menu shortcut.
+
+SmartScreen may warn on first launch because the exe is not code-signed: **More info > Run anyway**.
+
+### Linux
 
 ```bash
 chmod +x pgp-tools-linux-amd64
-./pgp-tools-linux-amd64
+./pgp-tools-linux-amd64              # portable
+./pgp-tools-linux-amd64 --install    # or Tools > Install to app menu...
 ```
 
-Windows: double-click `pgp-tools-windows-amd64.exe`. macOS: `chmod +x` then run; first launch may need right-click > Open (unsigned binary).
+### macOS
 
-### Install for current user (Linux/BSD, no root)
+`chmod +x pgp-tools-macos-arm64`, then run it. First launch may need right-click > Open (unsigned binary). No install step.
 
-```bash
-./pgp-tools-linux-amd64 --install     # copies itself to ~/.local/bin, adds app menu entry + icon
-pgp-tools --uninstall                 # removes those three files
-```
+### Per-user install locations (no admin/root)
 
-| Installed file | Location |
-|---|---|
-| Binary | `$XDG_BIN_HOME` or `~/.local/bin/pgp-tools` |
-| Menu entry | `$XDG_DATA_HOME` or `~/.local/share/applications/pgp-tools.desktop` |
-| Icon | `~/.local/share/icons/hicolor/scalable/apps/pgp-tools.svg` |
+| | Windows | Linux/BSD |
+|---|---|---|
+| Program | `%LOCALAPPDATA%\Programs\PGP Tools\pgp-tools.exe` | `$XDG_BIN_HOME` or `~/.local/bin/pgp-tools` |
+| Menu entry | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\PGP Tools.lnk` | `~/.local/share/applications/pgp-tools.desktop` |
+| Icon | inside the exe | `~/.local/share/icons/hicolor/scalable/apps/pgp-tools.svg` |
+| Settings | `%APPDATA%\fyne\io.github.yoyoucay.pgptools\` | `~/.config/fyne/io.github.yoyoucay.pgptools/` |
 
-If `~/.local/bin` is not in `PATH` the menu entry still works; the installer prints a note.
+Remove with **Tools > Remove from this computer...** or `--uninstall`. Keys and encrypted files are never touched.
 
-### Build from source
+If the Start Menu shortcut cannot be created (PowerShell blocked by company policy), the program is still installed and the app says so; pin it manually.
+
+## Build from source
 
 Requires Go (see `go.mod`) and a C compiler (Fyne uses cgo for OpenGL).
+
+### Windows (native)
+
+Install Go and MinGW-w64 gcc (e.g. MSYS2: `pacman -S mingw-w64-ucrt-x86_64-gcc`, then add its `bin` to `PATH`).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1          # tests + dist\pgp-tools.exe
+powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1 -Version v1.0.0 -SkipTests
+```
+
+`windres` (part of MinGW) embeds the icon, version info and a manifest: `asInvoker` (never asks for admin), per-monitor DPI awareness (sharp on scaled displays), long-path support. Without `windres` the exe still builds, without those.
+
+### Linux (and cross-building the Windows exe)
 
 ```bash
 # Debian/Ubuntu GUI headers
@@ -45,13 +66,28 @@ sudo apt-get install gcc pkg-config libgl1-mesa-dev xorg-dev libwayland-dev libx
 make check      # gofmt, vet, race tests, build -> bin/pgp-tools
 make report     # unit test report -> reports/index.html (see "Unit test report")
 make install    # per-user install, no sudo
+
+# Windows exe from Linux: sudo apt-get install gcc-mingw-w64-x86-64
+make windows VERSION=v1.0.0   # -> dist/pgp-tools.exe
 ```
 
 X11-only build (drops the libwayland-client link): `go build -tags x11 -o bin/pgp-tools ./cmd/pgp-tools`.
 
 ## Usage
 
-Two separate screens, reachable from the left tabs or the **Tools** menu.
+Two separate screens, reachable from the left tabs or the **Tools** menu. **Help > Which key goes where?** shows the key roles.
+
+### Getting files in
+
+- **Browse** next to each field, or type/paste a path. Quotes from Windows **Copy as path** are removed, `/` and `\` both work, `~` means your home folder.
+- **Drag and drop** files onto the window. The app detects what each file is:
+
+| Dropped file | Goes to |
+|---|---|
+| Encrypted file (`.gpg`, `.pgp`, `.asc` message) | Decrypt > Input file (switches tab) |
+| Any other file | Encrypt > Input file (switches tab) |
+| Public key | Public key field of the current tab |
+| Private key | Private key field of the current tab |
 
 ### Encrypt
 
@@ -60,8 +96,8 @@ Two separate screens, reachable from the left tabs or the **Tools** menu.
 | Input file | yes | File to protect |
 | Public key | yes | Recipient's public key. Only the matching private key can decrypt |
 | Private key | no | Your private key. Adds your signature |
-| Passphrase | if private key is protected | Unlocks your private key for signing |
-| Output file | yes | Defaults to `<input>.gpg`, or `<input>.asc` with ASCII armor |
+| Passphrase | if private key is protected | Unlocks your private key for signing. Disabled until needed |
+| Output file | yes | Defaults to `<input>.gpg`, or `<input>.asc` with "Save as text" |
 
 ### Decrypt
 
@@ -69,7 +105,7 @@ Two separate screens, reachable from the left tabs or the **Tools** menu.
 |---|---|---|
 | Input file | yes | `.gpg`, `.pgp` or `.asc` message |
 | Private key | yes | Your private key the message was encrypted to |
-| Passphrase | if private key is protected | Unlocks your private key |
+| Passphrase | if private key is protected | Unlocks your private key. Disabled until needed |
 | Public key | no | Sender's public key. When set, decryption fails unless the message carries a valid signature from this key |
 | Output file | yes | Defaults to input without `.gpg`/`.pgp`/`.asc`, else `<input>.decrypted` |
 
@@ -77,39 +113,66 @@ Two separate screens, reachable from the left tabs or the **Tools** menu.
 
 OpenPGP is asymmetric: anyone can encrypt with a **public** key; only the **private** key holder can decrypt. A private key used during encryption only signs; a public key used during decryption only verifies that signature. Encrypting "with a private key" would give no confidentiality, since the public key that reverses it is public.
 
+## Validation
+
+Every field is checked about a quarter second after you stop typing, in the background. A line under each field shows the result:
+
+| Look | Meaning |
+|---|---|
+| Plain text | Hint for an empty or optional field |
+| Green, check mark | Field is fine; shows what was found (size, key owner, key ID) |
+| Yellow, warning sign | Usable, but read this (e.g. output will be replaced) |
+| Red, error sign | Must be fixed before running |
+
+Above the run button, one line lists what is still missing, e.g. `To continue: choose your private key; enter the passphrase.` The **Encrypt** / **Decrypt** button is enabled only when nothing is missing.
+
+Checks performed before you press the button:
+
+| Field | Checked |
+|---|---|
+| Input file | Exists, is a file not a folder, readable; Decrypt: is an OpenPGP encrypted file, not password-only |
+| Public key | Is an OpenPGP key; Encrypt: can encrypt (not expired, revoked or sign-only); warns if the file also contains a private key |
+| Private key | Contains a private key, not just a public one; Encrypt: can sign; Decrypt: **matches the file's recipients** |
+| Passphrase | Enabled only for protected keys; verified against the key as you type (`Incorrect passphrase. Check Caps Lock and keyboard layout.`) |
+| Output file | Folder exists, not a folder itself, differs from input, Windows-invalid characters (`< > : " \| ? *`), warns if it will be replaced |
+
+The same rules run again when you press the button; nothing relies on the live check alone.
+
 ## Behavior and edge cases
 
 | Situation | Result |
 |---|---|
 | Output file exists | Confirm dialog before replacing |
-| Output path equals input path | Rejected |
+| Output path equals input path | Blocked by validation |
 | Failure or Cancel mid-run | No output file left behind (written to hidden temp file, renamed on success) |
+| Output file open in another program (Windows) | `Access denied. If the file is open in another program, close it and try again.` |
 | Tampered or truncated ciphertext | `message integrity check failed`; no plaintext written |
-| Wrong passphrase | `passphrase is incorrect` |
-| Protected key, empty passphrase | `private key is protected; passphrase required` |
-| Message not encrypted to given private key | `message is not encrypted for this private key` |
+| Message not encrypted to given private key | Blocked by validation; shows the key IDs the file is for |
+| Hidden recipient (anonymous key ID) | Allowed; decryption tries the key |
 | Public key given on Decrypt, message unsigned | Rejected: `message is not signed but signature verification was requested` |
 | Public key given on Decrypt, signed by another key | Rejected: `signed by a key other than the provided public key` |
 | No public key on Decrypt, message signed | Decrypts; reports signature present but NOT verified |
-| Passphrase-only (symmetric) message | Rejected as unsupported |
-| Expired, revoked or sign-only recipient key | `public key has no valid encryption subkey` |
+| Passphrase-only (symmetric) message | Blocked as unsupported |
 | Key file > 16 MiB or not a key | Rejected before reading input |
-| Directory or device as input | Rejected |
+| Key or message saved with CRLF and BOM (Notepad) | Accepted |
+| Running copy replaced during install/upgrade (Windows) | Old exe is moved aside, new one installed |
 
-Decrypted output is created with mode `0600`.
+Decrypted output is created with mode `0600` on Linux/macOS (owner-only).
 
 ## Data stored
 
-Only key file paths and the armor checkbox, in Fyne preferences (`~/.config/fyne/io.github.yoyoucay.pgptools/` on Linux). Passphrases are never stored. No network access.
+Only key file paths and the "Save as text" checkbox, in Fyne preferences (paths above). Passphrases are never stored; a correct-passphrase check is cached in memory only as a hash for the running session. No network access.
 
 ## CLI flags
 
 | Flag | Effect |
 |---|---|
 | (none) | Open the GUI |
-| `--install` | Per-user install (Linux/BSD). Exit 2 on other OS |
+| `--install` | Per-user install: Windows Start Menu or Linux/BSD app menu. Exit 2 on macOS; exit 1 if only the menu entry failed |
 | `--uninstall` | Remove per-user install |
 | `--version` | Print version |
+
+On Windows the release exe is a GUI program; run flags from `cmd` or PowerShell and the output appears in that window.
 
 ## Unit test report
 
