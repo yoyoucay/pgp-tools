@@ -19,26 +19,11 @@ func TestDescribe(t *testing.T) {
 		{&pgp.KeyError{Path: "/k/alice.asc", Err: pgp.ErrWrongPassphrase}, `Key file "alice.asc": passphrase is incorrect.`},
 		{fmt.Errorf("wrap: %w", &pgp.ValidationError{Field: "input file", Reason: "required"}), "Input file required."},
 		{pgp.ErrNoMatchingKey, "Message is not encrypted for this private key."},
+		{fmt.Errorf("finalize output: %w", fs.ErrPermission), "Access denied. If the file is open in another program, close it and try again. Otherwise choose a folder you can write to."},
 		{errors.New(""), "."},
 	} {
 		if got := describe(tc.err); got != tc.want {
 			t.Errorf("describe(%v) = %q, want %q", tc.err, got, tc.want)
-		}
-	}
-}
-
-func TestHumanBytes(t *testing.T) {
-	for n, want := range map[int64]string{
-		0:               "0 B",
-		1023:            "1023 B",
-		1024:            "1.0 KiB",
-		1536:            "1.5 KiB",
-		5 << 20:         "5.0 MiB",
-		3 << 30:         "3.0 GiB",
-		(1 << 40) + 512: "1.0 TiB",
-	} {
-		if got := humanBytes(n); got != want {
-			t.Errorf("humanBytes(%d) = %q, want %q", n, got, want)
 		}
 	}
 }

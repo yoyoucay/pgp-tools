@@ -35,7 +35,7 @@ func main() {
 	case *doUninstall:
 		exitOn(runUninstall())
 	default:
-		ui.Run(version, appAssets.IconSVG)
+		ui.Run(version, appAssets)
 	}
 }
 
