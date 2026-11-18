@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=PGP Tools
+Comment=Encrypt and decrypt files with OpenPGP keys
+Exec=@EXEC@
+Icon=pgp-tools
+Terminal=false
+Categories=Utility;Security;
+Keywords=pgp;gpg;encrypt;decrypt;openpgp;
+StartupWMClass=pgp-tools
