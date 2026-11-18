@@ -40,8 +40,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc pkg-config libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev wayland-protocols
 
+      - name: Test with report
+        if: runner.os == 'Linux'
+        run: make report
+
+      - name: Publish test summary
+        if: always() && runner.os == 'Linux'
+        shell: bash
+        run: |
+          if [ -f reports/summary.md ]; then
+            cat reports/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No test report produced; see the 'Test with report' step log." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test report
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: reports/
+          if-no-files-found: warn
+
       - name: Test
-        run: go test -count=1 ./internal/...
+        if: runner.os != 'Linux'
+        run: go test -count=1 ./internal/... ./tools/...
 
       - name: Build
         shell: bash
