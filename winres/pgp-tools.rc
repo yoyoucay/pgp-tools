@@ -1,0 +1,39 @@
+// Windows resources: icon, manifest (asInvoker, per-monitor DPI, long paths), version info.
+// Compiled to cmd/pgp-tools/rsrc_windows_amd64.syso by scripts/build-windows.ps1, make windows, or CI.
+#include <winver.h>
+
+#ifndef VER_MAJOR
+#define VER_MAJOR 0
+#define VER_MINOR 0
+#define VER_PATCH 0
+#endif
+#define VER_STR_(x) #x
+#define VER_STR(a, b, c) VER_STR_(a) "." VER_STR_(b) "." VER_STR_(c)
+
+1 ICON "pgp-tools.ico"
+1 24 "pgp-tools.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     VER_MAJOR, VER_MINOR, VER_PATCH, 0
+PRODUCTVERSION  VER_MAJOR, VER_MINOR, VER_PATCH, 0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName",      "yoyoucay"
+      VALUE "FileDescription",  "PGP Tools - encrypt and decrypt files with OpenPGP keys"
+      VALUE "FileVersion",      VER_STR(VER_MAJOR, VER_MINOR, VER_PATCH)
+      VALUE "InternalName",     "pgp-tools"
+      VALUE "OriginalFilename", "pgp-tools.exe"
+      VALUE "ProductName",      "PGP Tools"
+      VALUE "ProductVersion",   VER_STR(VER_MAJOR, VER_MINOR, VER_PATCH)
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0409, 0x04B0
+  END
+END

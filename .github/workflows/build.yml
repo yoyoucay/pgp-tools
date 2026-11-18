@@ -14,16 +14,10 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: pgp-tools-linux-amd64
-            ext: ""
-            ldextra: ""
           - os: windows-latest
             artifact: pgp-tools-windows-amd64
-            ext: ".exe"
-            ldextra: "-H windowsgui"
           - os: macos-latest
             artifact: pgp-tools-macos-arm64
-            ext: ""
-            ldextra: ""
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -63,16 +57,25 @@ jobs:
           if-no-files-found: warn
 
       - name: Test
-        if: runner.os != 'Linux'
+        if: runner.os == 'macOS'
         run: go test -count=1 ./internal/... ./tools/...
 
-      - name: Build
+      - name: Build (Linux, macOS)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           VERSION=$(git describe --tags --always)
           mkdir -p dist
-          go build -trimpath -ldflags "-s -w -X main.version=${VERSION} ${{ matrix.ldextra }}" \
-            -o "dist/${{ matrix.artifact }}${{ matrix.ext }}" ./cmd/pgp-tools
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o "dist/${{ matrix.artifact }}" ./cmd/pgp-tools
+
+      - name: Test and build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/build-windows.ps1
+          $info = (Get-Item dist/pgp-tools.exe).VersionInfo
+          if ($info.ProductName -ne 'PGP Tools') { throw "exe is missing its version resource (windres not run?)" }
+          Move-Item dist/pgp-tools.exe "dist/${{ matrix.artifact }}.exe"
 
       - uses: actions/upload-artifact@v4
         with:

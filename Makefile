@@ -5,7 +5,15 @@ BIN     := bin/$(APP)
 REPORTS := reports
 PKGS    := ./internal/... ./tools/...
 
-.PHONY: build test vet check report install uninstall clean
+# Windows cross-build (Debian/Ubuntu: apt-get install gcc-mingw-w64-x86-64).
+WIN_CC  ?= x86_64-w64-mingw32-gcc
+WINDRES ?= x86_64-w64-mingw32-windres
+WIN_EXE := dist/$(APP).exe
+SYSO    := cmd/$(APP)/rsrc_windows_amd64.syso
+# Numeric x.y.z for the exe version resource; 0.0.0 when VERSION is not a tag.
+VER_NUM := $(or $(shell echo "$(VERSION)" | sed -nE 's/^v?([0-9]+)\.([0-9]+)\.([0-9]+).*/\1 \2 \3/p'),0 0 0)
+
+.PHONY: build test vet check report windows install uninstall clean
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/$(APP)
@@ -29,6 +37,13 @@ vet:
 
 check: vet test build
 
+# Portable Windows exe with icon, manifest (no admin prompt, DPI aware) and version info.
+windows:
+	cd winres && $(WINDRES) -DVER_MAJOR=$(word 1,$(VER_NUM)) -DVER_MINOR=$(word 2,$(VER_NUM)) -DVER_PATCH=$(word 3,$(VER_NUM)) \
+		-O coff -i pgp-tools.rc -o ../$(SYSO)
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=$(WIN_CC) \
+		go build -trimpath -ldflags "$(LDFLAGS) -H windowsgui" -o $(WIN_EXE) ./cmd/$(APP)
+
 # Per-user install, no root: ~/.local/bin + desktop entry + icon.
 install: build
 	./$(BIN) --install
@@ -38,5 +53,5 @@ uninstall:
 
 clean:
 	go clean
-	rm -f $(BIN)
+	rm -f $(BIN) $(WIN_EXE) $(SYSO)
 	rm -f $(REPORTS)/test.json $(REPORTS)/coverage.out $(REPORTS)/coverage.html $(REPORTS)/junit.xml $(REPORTS)/summary.md $(REPORTS)/index.html
