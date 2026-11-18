@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}: {{.Verdict}}</title>
+<style>
+:root { --bg:#fff; --fg:#1b1f24; --muted:#59636e; --line:#d1d9e0; --card:#f6f8fa; --pass:#1a7f37; --fail:#cf222e; --skip:#9a6700; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --line:#3d444d; --card:#151b23; --pass:#3fb950; --fail:#f85149; --skip:#d29922; }
+}
+* { box-sizing: border-box; }
+body { margin:0; padding:24px; font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--fg); }
+main { max-width:1100px; margin:0 auto; }
+h1 { font-size:22px; margin:0 0 4px; }
+h2 { font-size:16px; margin:28px 0 8px; }
+.meta { color:var(--muted); margin-bottom:20px; }
+.verdict { font-weight:700; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+.tile { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+.tile .v { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; }
+.tile .k { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { color:var(--muted); font-weight:600; font-size:12px; }
+td.n, th.n { text-align:right; }
+code { font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+.pass { color:var(--pass); } .fail { color:var(--fail); } .skip { color:var(--skip); } .muted { color:var(--muted); }
+.bar { height:6px; background:var(--line); border-radius:3px; min-width:80px; }
+.bar > span { display:block; height:100%; border-radius:3px; background:var(--pass); }
+pre { margin:6px 0 0; padding:10px; background:var(--card); border:1px solid var(--line); border-radius:6px; overflow:auto; max-height:420px; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:pre-wrap; }
+details summary { cursor:pointer; }
+.filter { margin:8px 0; }
+.empty { color:var(--muted); padding:12px 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>{{.Title}}: <span class="verdict {{if .Failed}}fail{{else}}pass{{end}}">{{.Verdict}}</span></h1>
+<div class="meta">Generated {{.Generated}}{{if .CoverageLink}} &middot; <a href="{{.CoverageLink}}">Line-by-line coverage</a>{{end}}</div>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Tests</div><div class="v">{{.Totals.Tests}}</div></div>
+  <div class="tile"><div class="k">Passed</div><div class="v pass">{{.Totals.Passed}}</div></div>
+  <div class="tile"><div class="k">Failed</div><div class="v {{if .Totals.Failed}}fail{{end}}">{{.Totals.Failed}}</div></div>
+  <div class="tile"><div class="k">Skipped</div><div class="v {{if .Totals.Skipped}}skip{{end}}">{{.Totals.Skipped}}</div></div>
+  <div class="tile"><div class="k">Packages</div><div class="v">{{.Totals.Packages}}</div></div>
+  <div class="tile"><div class="k">Test time</div><div class="v">{{printf "%.2f" .Totals.Elapsed}}s</div></div>
+  <div class="tile"><div class="k">Coverage</div><div class="v">{{pct .Coverage}}</div></div>
+</div>
+
+{{if .Failures}}
+<h2 class="fail">Failed tests ({{len .Failures}})</h2>
+{{range .Failures}}
+<details open>
+  <summary><code>{{.Test.Name}}</code> <span class="muted">{{.Package}}</span></summary>
+  {{if .Test.Output}}<pre>{{join .Test.Output}}</pre>{{else}}<div class="muted">{{noOutput}}</div>{{end}}
+</details>
+{{end}}
+{{end}}
+
+{{range .Packages}}{{if .BuildFailed}}
+<h2 class="fail">Build failed: <code>{{.Name}}</code></h2>
+<pre>{{join .BuildOutput}}{{join .Output}}</pre>
+{{end}}{{end}}
+
+{{if .Stray}}
+<h2>Non-JSON output</h2>
+<pre>{{range .Stray}}{{.}}
+{{end}}</pre>
+{{end}}
+
+<h2>Packages</h2>
+{{if .Packages}}
+<table>
+<thead><tr><th>Package</th><th>Status</th><th class="n">Tests</th><th class="n">Failed</th><th class="n">Skipped</th><th class="n">Test time</th><th>Coverage</th></tr></thead>
+<tbody>
+{{range .Packages}}
+<tr>
+  <td><code>{{.Name}}</code></td>
+  <td class="{{statusClass .}}">{{label .}}</td>
+  <td class="n">{{len .Tests}}</td>
+  <td class="n">{{count .Tests "fail"}}</td>
+  <td class="n">{{count .Tests "skip"}}</td>
+  <td class="n">{{printf "%.2f" .Elapsed}}s</td>
+  <td>{{if .Coverage}}<div class="bar" title="{{pct .Coverage}}"><span style="width:{{width .Coverage}}%"></span></div>{{end}}<span class="muted">{{pct .Coverage}}</span></td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{else}}<div class="empty">No packages reported.</div>{{end}}
+
+<h2>All tests</h2>
+{{range .Packages}}{{if .Tests}}
+<details {{if eq .Status "fail"}}open{{end}}>
+  <summary><code>{{.Name}}</code> <span class="muted">({{len .Tests}})</span></summary>
+  <table>
+  <thead><tr><th>Test</th><th>Status</th><th class="n">Duration</th></tr></thead>
+  <tbody>
+  {{range .Tests}}
+  <tr>
+    <td><code>{{.Name}}</code>{{if eq .Status "skip"}}<div class="muted">{{skipReason .Output}}</div>{{end}}</td>
+    <td class="{{.Status}}">{{upper .Status}}</td>
+    <td class="n">{{printf "%.3f" .Elapsed}}s</td>
+  </tr>
+  {{end}}
+  </tbody>
+  </table>
+</details>
+{{end}}{{end}}
+</main>
+</body>
+</html>

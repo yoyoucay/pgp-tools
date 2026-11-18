@@ -1,0 +1,29 @@
+{"ImportPath":"example.com/m/broken [example.com/m/broken.test]","Action":"build-output","Output":"# example.com/m/broken\n"}
+{"ImportPath":"example.com/m/broken [example.com/m/broken.test]","Action":"build-output","Output":"./a.go:2:23: cannot use \"a\" as int value\n"}
+{"ImportPath":"example.com/m/broken [example.com/m/broken.test]","Action":"build-fail"}
+{"Time":"2026-01-02T10:00:00Z","Action":"start","Package":"example.com/m/broken"}
+{"Time":"2026-01-02T10:00:00Z","Action":"output","Package":"example.com/m/broken","Output":"FAIL\texample.com/m/broken [build failed]\n"}
+{"Time":"2026-01-02T10:00:00Z","Action":"fail","Package":"example.com/m/broken","Elapsed":0,"FailedBuild":"example.com/m/broken [example.com/m/broken.test]"}
+{"Time":"2026-01-02T10:00:01Z","Action":"start","Package":"example.com/m/core"}
+{"Time":"2026-01-02T10:00:01Z","Action":"run","Package":"example.com/m/core","Test":"TestOK"}
+{"Time":"2026-01-02T10:00:01Z","Action":"output","Package":"example.com/m/core","Test":"TestOK","Output":"=== RUN   TestOK\n"}
+{"Time":"2026-01-02T10:00:01Z","Action":"output","Package":"example.com/m/core","Test":"TestOK","Output":"--- PASS: TestOK (0.01s)\n"}
+{"Time":"2026-01-02T10:00:01Z","Action":"pass","Package":"example.com/m/core","Test":"TestOK","Elapsed":0.01}
+{"Time":"2026-01-02T10:00:01Z","Action":"run","Package":"example.com/m/core","Test":"TestBad"}
+{"Time":"2026-01-02T10:00:01Z","Action":"run","Package":"example.com/m/core","Test":"TestBad/sub|pipe"}
+{"Time":"2026-01-02T10:00:01Z","Action":"output","Package":"example.com/m/core","Test":"TestBad/sub|pipe","Output":"    core_test.go:9: got <script>alert(1)</script> ``` want 2\n"}
+{"Time":"2026-01-02T10:00:01Z","Action":"output","Package":"example.com/m/core","Test":"TestBad/sub|pipe","Output":"    --- FAIL: TestBad/sub|pipe (0.00s)\n"}
+{"Time":"2026-01-02T10:00:01Z","Action":"fail","Package":"example.com/m/core","Test":"TestBad/sub|pipe","Elapsed":0}
+{"Time":"2026-01-02T10:00:01Z","Action":"fail","Package":"example.com/m/core","Test":"TestBad","Elapsed":0.02}
+{"Time":"2026-01-02T10:00:01Z","Action":"run","Package":"example.com/m/core","Test":"TestSkip"}
+{"Time":"2026-01-02T10:00:01Z","Action":"output","Package":"example.com/m/core","Test":"TestSkip","Output":"    core_test.go:20: gpg not installed\n"}
+{"Time":"2026-01-02T10:00:01Z","Action":"output","Package":"example.com/m/core","Test":"TestSkip","Output":"--- SKIP: TestSkip (0.00s)\n"}
+{"Time":"2026-01-02T10:00:01Z","Action":"skip","Package":"example.com/m/core","Test":"TestSkip","Elapsed":0}
+{"Time":"2026-01-02T10:00:01Z","Action":"fail","Package":"example.com/m/core","Elapsed":0.05}
+{"Time":"2026-01-02T10:00:02Z","Action":"start","Package":"example.com/m/crash"}
+{"Time":"2026-01-02T10:00:02Z","Action":"run","Package":"example.com/m/crash","Test":"TestPanics"}
+{"Time":"2026-01-02T10:00:02Z","Action":"output","Package":"example.com/m/crash","Test":"TestPanics","Output":"panic: boom\n"}
+{"Time":"2026-01-02T10:00:03Z","Action":"start","Package":"example.com/m/empty"}
+{"Time":"2026-01-02T10:00:03Z","Action":"output","Package":"example.com/m/empty","Output":"?   \texample.com/m/empty\t[no test files]\n"}
+{"Time":"2026-01-02T10:00:03Z","Action":"skip","Package":"example.com/m/empty","Elapsed":0}
+go: warning: stray toolchain line
