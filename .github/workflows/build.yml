@@ -1,0 +1,57 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: pgp-tools-linux-amd64
+            ext: ""
+            ldextra: ""
+          - os: windows-latest
+            artifact: pgp-tools-windows-amd64
+            ext: ".exe"
+            ldextra: "-H windowsgui"
+          - os: macos-latest
+            artifact: pgp-tools-macos-arm64
+            ext: ""
+            ldextra: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Linux GUI build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc pkg-config libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev wayland-protocols
+
+      - name: Test
+        run: go test -count=1 ./internal/...
+
+      - name: Build
+        shell: bash
+        run: |
+          VERSION=$(git describe --tags --always)
+          mkdir -p dist
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION} ${{ matrix.ldextra }}" \
+            -o "dist/${{ matrix.artifact }}${{ matrix.ext }}" ./cmd/pgp-tools
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*
