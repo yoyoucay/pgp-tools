@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -17,6 +18,9 @@ func describe(err error) string {
 	}
 	var ke *pgp.KeyError
 	if errors.As(err, &ke) {
+		if errors.Is(ke.Err, fs.ErrNotExist) {
+			return fmt.Sprintf("Key file not found: %s.", ke.Path)
+		}
 		return fmt.Sprintf("Key file %q: %v.", filepath.Base(ke.Path), ke.Err)
 	}
 	return capitalize(err.Error()) + "."
