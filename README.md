@@ -11,7 +11,7 @@ Desktop app to encrypt and decrypt files with OpenPGP keys. One portable program
 
 ### Windows
 
-1. Download `pgp-tools-windows-amd64.exe` from the latest CI run or release.
+1. Download `pgp-tools-windows-amd64.exe` from the [Releases](https://github.com/yoyoucay/pgp-tools/releases) page. Optional: compare its hash with `SHA256SUMS.txt` (`Get-FileHash pgp-tools-windows-amd64.exe`).
 2. Double-click it. It runs as-is (portable): no installer, no admin prompt.
 3. Optional: **Tools > Install to Start Menu...** copies it to your user profile and adds a Start Menu shortcut.
 
@@ -227,6 +227,24 @@ go run ./tools/testreport -in test.json -coverprofile cover.out \
 | 3 | Input, coverage or output file I/O error |
 
 Edge cases: a test with no pass/fail event (panic, timeout, killed binary) is reported as failed with a note. Compile errors appear as `BUILD FAILED` with the compiler output. Lines that are not JSON are kept in a "Non-JSON output" section. Test time is the sum per package; packages run in parallel, so it can exceed wall-clock time.
+
+## Releasing
+
+| Trigger | Builds | Publishes |
+|---|---|---|
+| Pull request, push to `main` | Linux: tests, unit test report, binary | CI artifacts |
+| Manual run (Actions > build > Run workflow) | Linux, Windows, macOS | CI artifacts |
+| Tag `v*` | Linux, Windows, macOS | GitHub Release with all binaries and `SHA256SUMS.txt` |
+
+Windows and macOS run only for tags and manual runs because private repos bill their Actions minutes at 2x and 10x.
+
+```bash
+git checkout main && git pull
+git tag v0.1.0            # a tag with a hyphen (v0.2.0-rc1) becomes a pre-release
+git push origin v0.1.0
+```
+
+The release is created only if all three builds pass.
 
 ## Development
 
