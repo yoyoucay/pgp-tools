@@ -17,6 +17,7 @@ PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPG
 | `internal/ui` | Fyne widgets only. Calls `pgp.Encrypt/Decrypt`; no crypto logic. |
 | `cmd/pgp-tools` | Flags (`--install`, `--uninstall`, `--version`) and UI launch. |
 | `assets` | Embedded icon + desktop entry template. |
+| `tools/testreport` | `go test -json` to HTML/JUnit/Markdown report. Standard library only; not shipped in the app binary. |
 
 ## Invariants (do not break)
 
@@ -38,7 +39,7 @@ PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPG
 ## Definition of Done
 
 - Behavior implemented and covered by a test (or a recorded manual GUI check for UI-only changes).
-- `./init.sh` passes.
+- `./init.sh` passes; `make report` shows no failures and no coverage drop in touched packages.
 - `feature_list.json` status + evidence updated; `progress.md` updated.
 - README updated if user-visible behavior changed.
 
@@ -53,6 +54,7 @@ PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPG
 ```bash
 ./init.sh                 # full gate
 go test ./internal/pgp    # fast loop for crypto changes (no GUI libs needed)
+make report               # reports/index.html; attach summary.md as evidence
 ```
 
 ## Escalate to user

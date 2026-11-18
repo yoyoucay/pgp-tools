@@ -6,6 +6,7 @@ internal/ui          Fyne tabs (Encrypt, Decrypt), runner (busy/cancel/errors)
 internal/pgp         Encrypt(ctx, EncryptRequest) / Decrypt(ctx, DecryptRequest)
 internal/install     XDG per-user install
 assets               embedded icon.svg + pgp-tools.desktop template
+tools/testreport     dev tool: go test -json -> HTML / JUnit / Markdown
 ```
 
 Dependency direction: `cmd -> ui -> pgp`, `cmd -> install`. `pgp` and `install` import no UI code and are fully unit-tested without a display.
@@ -43,3 +44,7 @@ Crypto runs in a goroutine per job. All widget updates from it go through `fyne.
 | GUI | Fyne v2 (OpenGL via cgo); one binary per OS |
 | Install | `--install` copies the running binary; no package manager, no root |
 | Settings | Fyne preferences, per user |
+
+## Test reporting
+
+`make report` pipes `go test -json` into `tools/testreport`, which builds one in-memory model (packages, tests, coverage) and renders three views from it: `html/template` page (auto-escaped output), `encoding/xml` JUnit, and Markdown for the GitHub job summary. Build failures (`build-fail` events, Go 1.24+), tests with no terminal event, and package failures without a failing test are all surfaced as failures so no output format can report green by omission.

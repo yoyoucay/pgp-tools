@@ -5,11 +5,12 @@
 
 ## Done
 
-- feat-001 crypto core, feat-002 UI, feat-003 non-root install. Evidence in `feature_list.json`.
+- feat-001 crypto core, feat-002 UI, feat-003 non-root install, feat-007 unit test report. Evidence in `feature_list.json`.
+- Fixed: missing key file now shows "Key file not found: <path>" (mapping was never applied; caught by new `internal/ui` tests).
 
 ## Next
 
-1. Push, confirm `build` workflow green on all three OS runners; fix Windows/macOS cgo issues if any.
+1. Push, confirm `build` workflow green on all three OS runners and the `unit-test-report` artifact + job summary appear; fix Windows/macOS cgo issues if any.
 2. feat-005 release packaging.
 
 ## Decisions

@@ -12,7 +12,9 @@
       "id": "feat-002",
       "name": "Desktop UI with separate Encrypt and Decrypt menus",
       "description": "Fyne window, side tabs + Tools menu for Encrypt/Decrypt, file pickers, passphrase entry, overwrite confirm, busy state, cancel, error dialogs, remembered key paths",
-      "dependencies": ["feat-001"],
+      "dependencies": [
+        "feat-001"
+      ],
       "status": "done",
       "evidence": "Xvfb + xdotool: both tabs render; decrypt of GnuPG-signed message via GUI produced plaintext (mode 0600) and 'Signature: valid'; missing key file shows error dialog"
     },
@@ -20,7 +22,9 @@
       "id": "feat-003",
       "name": "Non-root per-user install",
       "description": "pgp-tools --install / --uninstall: binary to ~/.local/bin, desktop entry + icon under XDG_DATA_HOME; no root",
-      "dependencies": ["feat-002"],
+      "dependencies": [
+        "feat-002"
+      ],
       "status": "done",
       "evidence": "go test ./internal/install; manual run with isolated HOME created 755 binary, desktop entry, icon; uninstall removed all three"
     },
@@ -28,15 +32,29 @@
       "id": "feat-004",
       "name": "CI builds for Linux, Windows, macOS",
       "description": ".github/workflows/build.yml: test + portable binary artifact per OS",
-      "dependencies": ["feat-001"],
+      "dependencies": [
+        "feat-001"
+      ],
       "status": "in-progress",
       "evidence": "Workflow written; not yet observed green on GitHub runners"
+    },
+    {
+      "id": "feat-007",
+      "name": "Unit test report",
+      "description": "tools/testreport + make report: HTML, JUnit XML, Markdown summary, per-package coverage; CI publishes job summary and uploads reports/ artifact even on failure",
+      "dependencies": [
+        "feat-001"
+      ],
+      "status": "done",
+      "evidence": "go test ./tools/testreport (parse, coverage merge, JUnit, Markdown, HTML escaping, CLI exit codes); make report: 48 tests pass, 67.7% coverage; injected failing test -> reports written, make exits 2"
     },
     {
       "id": "feat-005",
       "name": "Release packaging",
       "description": "On v* tag: attach binaries to GitHub release; macOS .app via fyne package; Windows exe icon resource",
-      "dependencies": ["feat-004"],
+      "dependencies": [
+        "feat-004"
+      ],
       "status": "not-started",
       "evidence": ""
     },
@@ -44,7 +62,9 @@
       "id": "feat-006",
       "name": "Drag-and-drop input",
       "description": "Drop a file on the window to fill Input file of the active tab",
-      "dependencies": ["feat-002"],
+      "dependencies": [
+        "feat-002"
+      ],
       "status": "not-started",
       "evidence": ""
     }
