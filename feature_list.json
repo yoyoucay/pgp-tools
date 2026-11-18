@@ -1,0 +1,52 @@
+{
+  "features": [
+    {
+      "id": "feat-001",
+      "name": "Crypto core",
+      "description": "internal/pgp: file encrypt to public key (optional sign), decrypt with private key + passphrase (optional verify), armored/binary auto-detect, atomic output, cancel, typed errors",
+      "dependencies": [],
+      "status": "done",
+      "evidence": "go test -race ./internal/pgp: roundtrip, wrong passphrase, wrong recipient, signer mismatch, unsigned-but-verify, tampered ciphertext, empty input, cancel, GnuPG interop both directions"
+    },
+    {
+      "id": "feat-002",
+      "name": "Desktop UI with separate Encrypt and Decrypt menus",
+      "description": "Fyne window, side tabs + Tools menu for Encrypt/Decrypt, file pickers, passphrase entry, overwrite confirm, busy state, cancel, error dialogs, remembered key paths",
+      "dependencies": ["feat-001"],
+      "status": "done",
+      "evidence": "Xvfb + xdotool: both tabs render; decrypt of GnuPG-signed message via GUI produced plaintext (mode 0600) and 'Signature: valid'; missing key file shows error dialog"
+    },
+    {
+      "id": "feat-003",
+      "name": "Non-root per-user install",
+      "description": "pgp-tools --install / --uninstall: binary to ~/.local/bin, desktop entry + icon under XDG_DATA_HOME; no root",
+      "dependencies": ["feat-002"],
+      "status": "done",
+      "evidence": "go test ./internal/install; manual run with isolated HOME created 755 binary, desktop entry, icon; uninstall removed all three"
+    },
+    {
+      "id": "feat-004",
+      "name": "CI builds for Linux, Windows, macOS",
+      "description": ".github/workflows/build.yml: test + portable binary artifact per OS",
+      "dependencies": ["feat-001"],
+      "status": "in-progress",
+      "evidence": "Workflow written; not yet observed green on GitHub runners"
+    },
+    {
+      "id": "feat-005",
+      "name": "Release packaging",
+      "description": "On v* tag: attach binaries to GitHub release; macOS .app via fyne package; Windows exe icon resource",
+      "dependencies": ["feat-004"],
+      "status": "not-started",
+      "evidence": ""
+    },
+    {
+      "id": "feat-006",
+      "name": "Drag-and-drop input",
+      "description": "Drop a file on the window to fill Input file of the active tab",
+      "dependencies": ["feat-002"],
+      "status": "not-started",
+      "evidence": ""
+    }
+  ]
+}
