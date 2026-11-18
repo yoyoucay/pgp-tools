@@ -35,6 +35,7 @@ PGP Tools: portable desktop app (Go + Fyne) to encrypt/decrypt files with OpenPG
 - Do not edit files outside the active feature's scope.
 - Do not add a GnuPG/cgo crypto dependency.
 - Commit author: `yoyoucay`. No AI co-author or trailer lines.
+- Branches: each new change gets exactly one new branch from the latest `main` (e.g. `feat/<topic>`, `fix/<topic>`, `docs/<topic>`) and its own PR. Never commit new work to `main` or to another change's branch. Fixes requested on an open PR go on that PR's branch.
 
 ## Definition of Done
 
